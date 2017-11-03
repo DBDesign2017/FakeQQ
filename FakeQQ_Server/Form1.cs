@@ -22,7 +22,6 @@ namespace FakeQQ_Server
         {
             string input_ID = textBox1.Text.Trim();
             string input_PW = textBox2.Text.Trim();
-            string PW = "";
             bool Correct = false;
             SqlConnection conn = new SqlConnection("Data Source=C418;Initial Catalog=FakeQQ;Integrated Security=True");
             SqlCommand cmd = new SqlCommand("select PassWord from dbo.Adminstrator where AdminstratorID='" + input_ID + "'", conn);
