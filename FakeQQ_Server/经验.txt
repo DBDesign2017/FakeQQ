@@ -1,0 +1,1 @@
+1.对象的序列化与反序列化需要“using System.Web.Script.Serialization;”，在vs2015中，这个语句需要右键解决方案，添加引用：System.Web.Extensions.dll
