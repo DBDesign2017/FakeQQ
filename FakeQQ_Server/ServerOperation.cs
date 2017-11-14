@@ -1,4 +1,4 @@
-﻿//此类实现功能：服务端在接收到数据包后做出不同操作
+﻿//此类实现：服务端在接收到数据包后做出不同操作
 
 using System;
 using System.Collections.Generic;
@@ -25,16 +25,26 @@ namespace FakeQQ_Server
         }
         public bool StartServer()
         {
-            //定义IP地址
-            IPAddress local = IPAddress.Parse("127.0.0.1");
-            int port = 8500;
-            IPEndPoint iep = new IPEndPoint(local, port);
-            //创建服务器的socket对象
-            server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            server.Bind(iep);
-            server.Listen(20);
-            server.BeginAccept(new AsyncCallback(AcceptCallback), server);
-            return true;
+            bool success = false;
+            try
+            {
+                //定义IP地址
+                IPAddress local = IPAddress.Parse("127.0.0.1");
+                int port = 8500;
+                IPEndPoint iep = new IPEndPoint(local, port);
+                //创建服务器的socket对象
+                server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                server.Bind(iep);
+                server.Listen(20);
+                server.BeginAccept(new AsyncCallback(AcceptCallback), server);
+                success = true;
+            }
+            catch(Exception e)
+            {
+                MessageBox.Show(e.ToString());
+                success = false;
+            }
+            return success;
         }
         public bool CloseServer()
         {
@@ -51,7 +61,7 @@ namespace FakeQQ_Server
             recieveData.service = service;
             service.BeginReceive(recieveData.buffer, 0, DataPacketManager.MAX_SIZE, SocketFlags.None,
                 new AsyncCallback(RecieveCallback), recieveData);
-            server.BeginAccept(new AsyncCallback(AcceptCallback), server);
+            server.BeginAccept(new AsyncCallback(AcceptCallback), server);//重新开始监听
         }
         private void RecieveCallback(IAsyncResult iar)
         {
@@ -64,9 +74,17 @@ namespace FakeQQ_Server
                 DataPacket responsePacket = new DataPacket();
                 //根据接收到的数据包，产生响应的数据包
                 responsePacket = Operate(packet);
-                //把响应的数据包发给客户端
-                SendPacket s = new SendPacket();
-                s.Send(responsePacket, recieveData.service);
+                //把响应的数据包发给客户端（不一定是原客户端）
+                switch (responsePacket.CommandNo)
+                {
+                    case 1:
+                        {
+                            Send(recieveData.service, responsePacket.PacketToBytes());
+                            break;
+                        }
+                    default:
+                        break;
+                }
             }
             else
             {
@@ -74,18 +92,53 @@ namespace FakeQQ_Server
                 new AsyncCallback(RecieveCallback), recieveData);
             }
         }
+        private static void Send(Socket handler, byte[] buffer)
+        {
+            handler.BeginSend(buffer, 0, buffer.Length, 0, new AsyncCallback(SendCallback), handler);
+        }
+        private static void SendCallback(IAsyncResult iar)
+        {
+            try
+            {
+                //重新获取socket
+                Socket handler = (Socket)iar.AsyncState;
+                //完成发送字节数组动作
+                int bytesSent = handler.EndSend(iar);
+                Console.WriteLine("Send {0} bytes to server ", bytesSent);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+            }
+        }
+
         public DataPacket Operate(DataPacket packet)
         {
             DataPacket responsePacket = new DataPacket();
             responsePacket.CommandNo = 255;//表示数据包里无有效信息
+            responsePacket.ComputerName = "";
+            responsePacket.NameLength = 0;
+            responsePacket.FromIP = IPAddress.Parse("0.0.0.0");
+            responsePacket.ToIP = IPAddress.Parse("0.0.0.0");
+            responsePacket.Content = "";
             switch (packet.CommandNo)
             {
                 case 1://客户端请求登录操作
                     {
                         JavaScriptSerializer js = new JavaScriptSerializer();
-                        dynamic content = js.Deserialize<dynamic>(packet.Content);//动态的反序列化
-                        string input_ID = content["UserID"];//动态反序列化的结果必须用索引取值
-                        string input_PW = content["PassWord"];
+                        string input_ID = "null";
+                        string input_PW = "null";
+                        try
+                        {
+                            dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0",""));//动态的反序列化，不删除Content后面的结束符的话无法反序列化
+                            input_ID = content["UserID"];//动态反序列化的结果必须用索引取值
+                            input_PW = content["PassWord"];
+                        }
+                        catch(Exception e)
+                        {
+                            Console.WriteLine(e.ToString());
+                        }
+                        
                         bool Correct = false;
                         SqlConnection conn = new SqlConnection("Data Source=C418;Initial Catalog=FakeQQ;Integrated Security=True");
                         SqlCommand cmd = new SqlCommand("select PassWord from dbo.Adminstrator where AdminstratorID='" + input_ID + "'", conn);
@@ -118,8 +171,14 @@ namespace FakeQQ_Server
                         if (Correct == true) { responsePacket.CommandNo = 1; }
                         else{ responsePacket.CommandNo = 2; }
                         responsePacket.ToIP = packet.FromIP;
+                        responsePacket.FromIP = packet.ToIP;
+                        responsePacket.ComputerName = "Server";
+                        responsePacket.NameLength = responsePacket.ComputerName.Length;
+                        responsePacket.Content = "";
                         break;
                     }
+                default:
+                    break;
             }
             return responsePacket;
         }
