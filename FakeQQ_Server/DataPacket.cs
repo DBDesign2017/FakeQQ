@@ -38,7 +38,7 @@ namespace FakeQQ_Server
             byte[] commandb = new byte[1];
             commandb[0] = commandNo;//将命令号转换为byte数组
             byte[] fromipb = fromIP.GetAddressBytes();//将发送端IP转换为byte数组
-            byte[] nameb = Encoding.UTF8.GetBytes(/*computerName*/"");//将计算机名转换为byte数组
+            byte[] nameb = Encoding.UTF8.GetBytes(computerName);//将计算机名转换为byte数组
             byte[] lengthb = BitConverter.GetBytes(nameb.Length);//将计算机名的长度转换为byte数组
             byte[] toipb = toIP.GetAddressBytes();//将接收端IP转换为byte数组
             byte[] contentb = Encoding.UTF8.GetBytes(content);//将内容转换为byte数组

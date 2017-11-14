@@ -10,18 +10,74 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Web;
 using System.Web.Script.Serialization;
+using System.Net;
+using System.Net.Sockets;
 
 namespace FakeQQ_Server
 {
     class ServerOperation
     {
         private Form2 Form;
+        private Socket server;
         public ServerOperation(Form2 form)
         {
             Form = form;
         }
-        public bool Operate(DataPacket packet)
+        public bool StartServer()
         {
+            //定义IP地址
+            IPAddress local = IPAddress.Parse("127.0.0.1");
+            int port = 8500;
+            IPEndPoint iep = new IPEndPoint(local, port);
+            //创建服务器的socket对象
+            server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            server.Bind(iep);
+            server.Listen(20);
+            server.BeginAccept(new AsyncCallback(AcceptCallback), server);
+            return true;
+        }
+        public bool CloseServer()
+        {
+            server.Close();
+            return true;
+        }
+        private void AcceptCallback(IAsyncResult iar)
+        {
+            //还原传入的原始套接字
+            Socket server = iar.AsyncState as Socket;
+            //在原始套接字上调用EndAccept方法，返回新套接字
+            Socket service = server.EndAccept(iar);
+            DataPacketManager recieveData = new DataPacketManager();
+            recieveData.service = service;
+            service.BeginReceive(recieveData.buffer, 0, DataPacketManager.MAX_SIZE, SocketFlags.None,
+                new AsyncCallback(RecieveCallback), recieveData);
+            server.BeginAccept(new AsyncCallback(AcceptCallback), server);
+        }
+        private void RecieveCallback(IAsyncResult iar)
+        {
+            DataPacketManager recieveData = iar.AsyncState as DataPacketManager;
+            int bytes = recieveData.service.EndReceive(iar);
+            if (bytes > 0)
+            {
+                DataPacket packet = new DataPacket(recieveData.buffer);
+                //接下根据packet内的commandNo进行各种不同操作
+                DataPacket responsePacket = new DataPacket();
+                //根据接收到的数据包，产生响应的数据包
+                responsePacket = Operate(packet);
+                //把响应的数据包发给客户端
+                SendPacket s = new SendPacket();
+                s.Send(responsePacket, recieveData.service);
+            }
+            else
+            {
+                recieveData.service.BeginReceive(recieveData.buffer, 0, DataPacketManager.MAX_SIZE, SocketFlags.None,
+                new AsyncCallback(RecieveCallback), recieveData);
+            }
+        }
+        public DataPacket Operate(DataPacket packet)
+        {
+            DataPacket responsePacket = new DataPacket();
+            responsePacket.CommandNo = 255;//表示数据包里无有效信息
             switch (packet.CommandNo)
             {
                 case 1://客户端请求登录操作
@@ -58,18 +114,14 @@ namespace FakeQQ_Server
                                 conn.Close();
                             }
                         }
-                        if (Correct == true)
-                        {
-                            //向客户端发送登录成功信息，在在线用户表里面添加一条
-                        }
-                        else
-                        {
-                            //向客户端发送登录失败信息，（关闭socket？）
-                        }
+                        //构造要向客户端发送的数据包
+                        if (Correct == true) { responsePacket.CommandNo = 1; }
+                        else{ responsePacket.CommandNo = 2; }
+                        responsePacket.ToIP = packet.FromIP;
                         break;
                     }
             }
-            return false;
+            return responsePacket;
         }
     }
 }

@@ -14,6 +14,7 @@ namespace FakeQQ_Server
 {
     public partial class Form2 : Form
     {
+        bool ServerIsRunning = false;
         public Form2()
         {
             InitializeComponent();
@@ -21,44 +22,20 @@ namespace FakeQQ_Server
 
         private void button1_Click(object sender, EventArgs e)
         {
-            //定义IP地址
-            IPAddress local = IPAddress.Parse("127.0.0.1");
-            IPEndPoint iep = new IPEndPoint(local, 13000);
-            //创建服务器的socket对象
-            Socket server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            server.Bind(iep);
-            server.Listen(20);
-            server.BeginAccept(new AsyncCallback(Accept), server);
-        }
-
-        private void Accept(IAsyncResult iar)
-        {
-            //还原传入的原始套接字
-            Socket server = iar.AsyncState as Socket;
-            //在原始套接字上调用EndAccept方法，返回新套接字
-            Socket service = server.EndAccept(iar);
-            DataPacketManager recieveData = new DataPacketManager();
-            recieveData.service = service;
-            service.BeginReceive(recieveData.buffer, 0, DataPacketManager.MAX_SIZE, SocketFlags.None,
-                new AsyncCallback(Recieve), recieveData);
-            server.BeginAccept(new AsyncCallback(Accept), server);
-        }
-
-        private void Recieve(IAsyncResult iar)
-        {
-            DataPacketManager recieveData = iar.AsyncState as DataPacketManager;
-            int bytes = recieveData.service.EndReceive(iar);
-            if(bytes > 0)
-            {
-                DataPacket packet = new DataPacket(recieveData.buffer);
-                //接下根据packet内的commandNo进行各种不同操作
-                ServerOperation Operation = new ServerOperation(this);
-                Operation.Operate(packet);
+            Form2 form = new Form2();
+            if (ServerIsRunning == false)
+            {//进行启动服务操作
+                ServerOperation s = new ServerOperation(form);
+                s.StartServer();
+                button1.Text = "关闭服务";
+                ServerIsRunning = true;
             }
             else
-            {
-                recieveData.service.BeginReceive(recieveData.buffer, 0, DataPacketManager.MAX_SIZE, SocketFlags.None,
-                new AsyncCallback(Recieve), recieveData);
+            {//进行关闭服务操作
+                ServerOperation s = new ServerOperation(form);
+                s.CloseServer();
+                button1.Text = "启动服务";
+                ServerIsRunning = false;
             }
         }
     }
