@@ -82,6 +82,11 @@ namespace FakeQQ_Server
                             Send(recieveData.service, responsePacket.PacketToBytes());
                             break;
                         }
+                    case 2:
+                        {
+                            Send(recieveData.service, responsePacket.PacketToBytes());
+                            break;
+                        }
                     default:
                         break;
                 }
@@ -104,7 +109,6 @@ namespace FakeQQ_Server
                 Socket handler = (Socket)iar.AsyncState;
                 //完成发送字节数组动作
                 int bytesSent = handler.EndSend(iar);
-                Console.WriteLine("Send {0} bytes to server ", bytesSent);
             }
             catch (Exception e)
             {
@@ -168,8 +172,16 @@ namespace FakeQQ_Server
                             }
                         }
                         //构造要向客户端发送的数据包
-                        if (Correct == true) { responsePacket.CommandNo = 1; }
-                        else{ responsePacket.CommandNo = 2; }
+                        if (Correct == true)
+                        {
+                            responsePacket.CommandNo = 1;
+                            Console.WriteLine("a user login successful");
+                        }
+                        else
+                        {
+                            responsePacket.CommandNo = 2;
+                            Console.WriteLine("a user login failed");
+                        }
                         responsePacket.ToIP = packet.FromIP;
                         responsePacket.FromIP = packet.ToIP;
                         responsePacket.ComputerName = "Server";
