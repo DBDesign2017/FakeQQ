@@ -140,8 +140,8 @@ namespace FakeQQ_Server
                         }
                         
                         bool Correct = false;
-                        SqlConnection conn = new SqlConnection("Data Source=C418;Initial Catalog=FakeQQ;Integrated Security=True");
-                        SqlCommand cmd = new SqlCommand("select PassWord from dbo.Adminstrator where AdminstratorID='" + input_ID + "'", conn);
+                        SqlConnection conn = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                        SqlCommand cmd = new SqlCommand("select Password from dbo.Users where UserID='" + input_ID + "'", conn);
                         if (conn.State == ConnectionState.Closed)
                         {
                             try
@@ -150,9 +150,9 @@ namespace FakeQQ_Server
                                 SqlDataReader DataReader = cmd.ExecuteReader(CommandBehavior.CloseConnection);//使用这种方式构造SqlDataReader类型的对象，能够保证在DataReader关闭后自动Close()对应的SqlConnection类型的对象
                                 while (DataReader.Read())
                                 {
-                                    Console.WriteLine(DataReader["PassWord"].ToString());
+                                    Console.WriteLine(DataReader["Password"].ToString());
                                     Console.WriteLine(input_PW);
-                                    if (input_PW == DataReader["PassWord"].ToString().Trim())
+                                    if (input_PW == DataReader["Password"].ToString().Trim())
                                     {
                                         Correct = true;
                                     }
