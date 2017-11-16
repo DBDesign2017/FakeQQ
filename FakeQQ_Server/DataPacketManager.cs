@@ -7,7 +7,7 @@ using System.Net.Sockets;
 
 namespace FakeQQ_Server
 {
-    class DataPacketManager
+    class DataPacketManager:EventArgs
     {
         public Socket service = null;
         public const int MAX_SIZE = 8096;

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace FakeQQ_Server
 {
-    class DataPacket
+    class DataPacket:EventArgs
     {
         //数据包的详细信息
         private byte commandNo;//命令号，1字节

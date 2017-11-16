@@ -12,6 +12,7 @@ using System.Web;
 using System.Web.Script.Serialization;
 using System.Net;
 using System.Net.Sockets;
+using System.Collections;
 
 namespace FakeQQ_Server
 {
@@ -77,12 +78,22 @@ namespace FakeQQ_Server
                 //把响应的数据包发给客户端（不一定是原客户端）
                 switch (responsePacket.CommandNo)
                 {
-                    case 1:
+                    case 1://客户端登录成功
                         {
                             Send(recieveData.service, responsePacket.PacketToBytes());
                             break;
                         }
-                    case 2:
+                    case 2://客户端登录失败
+                        {
+                            Send(recieveData.service, responsePacket.PacketToBytes());
+                            break;
+                        }
+                    case 3://客户端注册成功
+                        {
+                            Send(recieveData.service, responsePacket.PacketToBytes());
+                            break;
+                        }
+                    case 4://客户端注册失败
                         {
                             Send(recieveData.service, responsePacket.PacketToBytes());
                             break;
@@ -136,7 +147,7 @@ namespace FakeQQ_Server
                         {
                             dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0",""));//动态的反序列化，不删除Content后面的结束符的话无法反序列化
                             input_ID = content["UserID"];//动态反序列化的结果必须用索引取值
-                            input_PW = content["PassWord"];
+                            input_PW = content["Password"];
                         }
                         catch(Exception e)
                         {
@@ -187,6 +198,89 @@ namespace FakeQQ_Server
                         responsePacket.ComputerName = "Server";
                         responsePacket.NameLength = responsePacket.ComputerName.Length;
                         responsePacket.Content = "";
+                        break;
+                    }
+                case 2://客户端请求注册操作
+                    {
+                        Console.WriteLine("a user want to register");
+                        //先从数据库找出所有已经已存在的UserID，构造一个尚未存在的UserID
+                        int UserID;
+                        ArrayList ExistID = new ArrayList(10);
+
+                        SqlConnection selectConnect = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                        SqlCommand selectCmd = new SqlCommand("select UserID from dbo.Users", selectConnect);
+                        if (selectConnect.State == ConnectionState.Closed)
+                        {
+                            try
+                            {
+                                selectConnect.Open();
+                                SqlDataReader DataReader = selectCmd.ExecuteReader(CommandBehavior.CloseConnection);//使用这种方式构造SqlDataReader类型的对象，能够保证在DataReader关闭后自动Close()对应的SqlConnection类型的对象
+                                while (DataReader.Read())
+                                {
+                                    //DataReader["UserID"]返回的数据的类型和数据库存储的类型一致，此处为int32
+                                    ExistID.Add(DataReader["UserID"]);
+                                }
+                                DataReader.Close();
+                            }
+                            catch(Exception e)
+                            {
+                                Console.WriteLine(e.ToString());
+                            }
+                            finally
+                            {
+                                selectConnect.Close();
+                            }
+                        }
+                        ExistID.Sort();//所有ID都从小到大排序了
+                        UserID = (int)ExistID[ExistID.Count - 1] + 1;
+
+                        //将构造出的新ID和packet里面的密码存储到数据库
+                        string PW = "";
+                        JavaScriptSerializer js = new JavaScriptSerializer();
+                        try
+                        {
+                            dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));//动态的反序列化，不删除Content后面的结束符的话无法反序列化
+                            PW = content["Password"];//动态反序列化的结果必须用索引取值
+                            Console.WriteLine("server password" + PW.ToString());
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e.ToString());
+                        }
+                        SqlConnection insertConnect = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                        SqlCommand insertCmd = new SqlCommand("insert into dbo.Users values('" + UserID.ToString() + "', null, '" + PW + "', null, null, null, null, null, null, null, null, null)", insertConnect);
+                        bool registerSuccess = true;
+                        if (selectConnect.State == ConnectionState.Closed)
+                        {
+                            try
+                            {
+                                insertConnect.Open();
+                                insertCmd.ExecuteNonQuery();//使用这种方式构造SqlDataReader类型的对象，能够保证在DataReader关闭后自动Close()对应的SqlConnection类型的对象
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine(e.ToString());
+                                registerSuccess = false;
+                            }
+                            finally
+                            {
+                                selectConnect.Close();
+                            }
+                        }
+                        //构造要发送的数据包
+                        if(registerSuccess == true)
+                        {
+                            responsePacket.CommandNo = 3;
+                        }
+                        else
+                        {
+                            responsePacket.CommandNo = 4;
+                        }
+                        responsePacket.ComputerName = "server";
+                        responsePacket.NameLength = responsePacket.ComputerName.Length;
+                        responsePacket.FromIP = IPAddress.Parse("0.0.0.0");
+                        responsePacket.ToIP = IPAddress.Parse("0.0.0.0");
+                        responsePacket.Content = UserID.ToString();
                         break;
                     }
                 default:
