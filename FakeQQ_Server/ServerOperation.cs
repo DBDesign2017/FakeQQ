@@ -18,11 +18,14 @@ namespace FakeQQ_Server
 {
     class ServerOperation
     {
-        private Form2 Form;
         private Socket server;
-        public ServerOperation(Form2 form)
+        private ArrayList userIDAndSocketList = new ArrayList();
+
+        public delegate void CrossThreadCallControlHandler(object sender, EventArgs e);
+        public static event CrossThreadCallControlHandler OneUserLogin;
+        public static void ToOneUserLogin(object sender, EventArgs e)
         {
-            Form = form;
+            OneUserLogin?.Invoke(sender, e);
         }
         public bool StartServer()
         {
@@ -40,7 +43,7 @@ namespace FakeQQ_Server
                 server.BeginAccept(new AsyncCallback(AcceptCallback), server);
                 success = true;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 MessageBox.Show(e.ToString());
                 success = false;
@@ -80,7 +83,18 @@ namespace FakeQQ_Server
                 {
                     case 1://客户端登录成功
                         {
+                            //向客户端发送响应数据包
                             Send(recieveData.service, responsePacket.PacketToBytes());
+                            //在 在线用户表（在线的用户----对应的Socket）上面加上这条记录
+                            JavaScriptSerializer js = new JavaScriptSerializer();
+                            dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));//动态的反序列化，不删除Content后面的结束符的话无法反序列化
+                            UserIDAndSocket line = new UserIDAndSocket();
+                            line.UserID = content["UserID"];
+                            line.Service = recieveData.service;
+                            userIDAndSocketList.Add(line);
+                            Console.WriteLine("userIDAndSocketList added");
+                            //发布OneUserLogin事件
+                            ToOneUserLogin(null, line);
                             break;
                         }
                     case 2://客户端登录失败
@@ -145,15 +159,15 @@ namespace FakeQQ_Server
                         string input_PW = "null";
                         try
                         {
-                            dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0",""));//动态的反序列化，不删除Content后面的结束符的话无法反序列化
+                            dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));//动态的反序列化，不删除Content后面的结束符的话无法反序列化
                             input_ID = content["UserID"];//动态反序列化的结果必须用索引取值
                             input_PW = content["Password"];
                         }
-                        catch(Exception e)
+                        catch (Exception e)
                         {
                             Console.WriteLine(e.ToString());
                         }
-                        
+
                         bool Correct = false;
                         SqlConnection conn = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
                         SqlCommand cmd = new SqlCommand("select Password from dbo.Users where UserID='" + input_ID + "'", conn);
@@ -222,7 +236,7 @@ namespace FakeQQ_Server
                                 }
                                 DataReader.Close();
                             }
-                            catch(Exception e)
+                            catch (Exception e)
                             {
                                 Console.WriteLine(e.ToString());
                             }
@@ -268,7 +282,7 @@ namespace FakeQQ_Server
                             }
                         }
                         //构造要发送的数据包
-                        if(registerSuccess == true)
+                        if (registerSuccess == true)
                         {
                             responsePacket.CommandNo = 3;
                         }
