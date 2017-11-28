@@ -19,7 +19,7 @@ namespace FakeQQ_Server
     class ServerOperation
     {
         private Socket server;
-        private ArrayList userIDAndSocketList = new ArrayList();
+        private ArrayList onlineList = new ArrayList();
 
         public delegate void CrossThreadCallControlHandler(object sender, EventArgs e);
         public static event CrossThreadCallControlHandler OneUserLogin;
@@ -53,6 +53,10 @@ namespace FakeQQ_Server
         public bool CloseServer()
         {
             server.Close();
+            for(int i=0; i<onlineList.Count; i++)
+            {
+                ((UserIDAndSocket)onlineList[i]).Service.Close();
+            }
             return true;
         }
         private void AcceptCallback(IAsyncResult iar)
@@ -77,7 +81,7 @@ namespace FakeQQ_Server
                 //接下根据packet内的commandNo进行各种不同操作
                 DataPacket responsePacket = new DataPacket();
                 //根据接收到的数据包，产生响应的数据包
-                responsePacket = Operate(packet);
+                responsePacket = Operate(packet, recieveData.service);
                 //把响应的数据包发给客户端（不一定是原客户端）
                 switch (responsePacket.CommandNo)
                 {
@@ -90,8 +94,8 @@ namespace FakeQQ_Server
                             dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));//动态的反序列化，不删除Content后面的结束符的话无法反序列化
                             UserIDAndSocket line = new UserIDAndSocket();
                             line.UserID = content["UserID"];
-                            line.Service = recieveData.service;
-                            userIDAndSocketList.Add(line);
+                            line.Service = null/*recieveData.service*/;
+                            onlineList.Add(line);
                             Console.WriteLine("userIDAndSocketList added");
                             //发布OneUserLogin事件
                             ToOneUserLogin(null, line);
@@ -112,6 +116,18 @@ namespace FakeQQ_Server
                             Send(recieveData.service, responsePacket.PacketToBytes());
                             break;
                         }
+                    case 17://客户端下载好友列表成功
+                        {
+                            Console.WriteLine("a client want to download friendlist, success");
+                            Send(recieveData.service, responsePacket.PacketToBytes());
+                            break;
+                        }
+                    case 18://客户端下载好友列表失败
+                        {
+                            Console.WriteLine("a client want to download friendlist, fail");
+                            Send(recieveData.service, responsePacket.PacketToBytes());
+                            break;
+                        }
                     default:
                         break;
                 }
@@ -122,18 +138,24 @@ namespace FakeQQ_Server
                 new AsyncCallback(RecieveCallback), recieveData);
             }
         }
-        private static void Send(Socket handler, byte[] buffer)
+        private void Send(Socket handler, byte[] buffer)
         {
             handler.BeginSend(buffer, 0, buffer.Length, 0, new AsyncCallback(SendCallback), handler);
         }
-        private static void SendCallback(IAsyncResult iar)
+        private void SendCallback(IAsyncResult iar)
         {
             try
             {
                 //重新获取socket
                 Socket handler = (Socket)iar.AsyncState;
+                /*service.BeginReceive(recieveData.buffer, 0, DataPacketManager.MAX_SIZE, SocketFlags.None,
+                new AsyncCallback(RecieveCallback), recieveData);*/
                 //完成发送字节数组动作
                 int bytesSent = handler.EndSend(iar);
+                DataPacketManager recieveData = new DataPacketManager();
+                recieveData.service = handler;
+                handler.BeginReceive(recieveData.buffer, 0, DataPacketManager.MAX_SIZE, SocketFlags.None,
+                    new AsyncCallback(RecieveCallback), recieveData);
             }
             catch (Exception e)
             {
@@ -141,7 +163,7 @@ namespace FakeQQ_Server
             }
         }
 
-        public DataPacket Operate(DataPacket packet)
+        public DataPacket Operate(DataPacket packet, Socket service)
         {
             DataPacket responsePacket = new DataPacket();
             responsePacket.CommandNo = 255;//表示数据包里无有效信息
@@ -211,7 +233,7 @@ namespace FakeQQ_Server
                         responsePacket.FromIP = packet.ToIP;
                         responsePacket.ComputerName = "Server";
                         responsePacket.NameLength = responsePacket.ComputerName.Length;
-                        responsePacket.Content = "";
+                        responsePacket.Content = input_ID;
                         break;
                     }
                 case 2://客户端请求注册操作
@@ -295,6 +317,66 @@ namespace FakeQQ_Server
                         responsePacket.FromIP = IPAddress.Parse("0.0.0.0");
                         responsePacket.ToIP = IPAddress.Parse("0.0.0.0");
                         responsePacket.Content = UserID.ToString();
+                        break;
+                    }
+                case 9://客户端请求下载好友列表
+                    {
+                        Console.WriteLine("operate case 9");
+                        //构造返回的数据包
+                        responsePacket.ComputerName = "server";
+                        responsePacket.NameLength = responsePacket.ComputerName.Length;
+                        responsePacket.FromIP = IPAddress.Parse("0.0.0.0");
+                        responsePacket.ToIP = IPAddress.Parse("0.0.0.0");
+                        //在数据库的Friends表中搜索，得到这个用户的所有好友的ID
+                        string UserID = packet.Content.Replace("\0", "");
+                        ArrayList friendList = new ArrayList();
+                        bool success = false;
+                        try
+                        {
+                            SqlConnection selectConnect = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                            SqlCommand selectCmd = new SqlCommand("select FriendID from dbo.Friends where ID='" + UserID + "'", selectConnect);
+                            if (selectConnect.State == ConnectionState.Closed)
+                            {
+                                try
+                                {
+                                    selectConnect.Open();
+                                    SqlDataReader DataReader = selectCmd.ExecuteReader(CommandBehavior.CloseConnection);//使用这种方式构造SqlDataReader类型的对象，能够保证在DataReader关闭后自动Close()对应的SqlConnection类型的对象
+                                    while (DataReader.Read())
+                                    {
+                                        friendList.Add(DataReader["FriendID"].ToString());
+                                    }
+                                    DataReader.Close();
+                                }
+                                catch(Exception e)
+                                {
+                                    Console.WriteLine(e.ToString());
+                                }
+                                finally
+                                {
+                                    selectConnect.Close();
+                                }
+                            }
+                            success = true;
+                        }
+                        catch(Exception e)
+                        {
+                            Console.WriteLine(e.ToString());
+                        }
+                        //处理返回的数据包的Content和CommandNO部分
+                        if(success == true)
+                        {
+                            responsePacket.CommandNo = 17;
+                        }
+                        else
+                        {
+                            responsePacket.CommandNo = 18;
+                        }
+                        /*for(int i=0; i<friendList.Count; i++)
+                        {
+                            Console.WriteLine(friendList[i].ToString());//从数据库中找到的数据没问题
+                        }*/
+                        JavaScriptSerializer js = new JavaScriptSerializer();
+                        responsePacket.Content = js.Serialize(friendList);
                         break;
                     }
                 default:

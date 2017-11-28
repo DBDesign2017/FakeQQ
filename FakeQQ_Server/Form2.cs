@@ -54,7 +54,11 @@ namespace FakeQQ_Server
             {
                 UserIDAndSocket uid = (UserIDAndSocket)e;
                 onlineUserID.Add(uid.UserID);
-                Console.WriteLine("gui get a userid");
+                listBox1.Items.Clear();
+                for(int i=0; i<onlineUserID.Count; i++)
+                {
+                    listBox1.Items.Add("用户" + onlineUserID[i].ToString() + "登录");
+                }
             }
         }
     }
