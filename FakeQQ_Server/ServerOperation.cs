@@ -128,9 +128,18 @@ namespace FakeQQ_Server
                             Send(recieveData.service, responsePacket.PacketToBytes());
                             break;
                         }
+                    case 255:
+                        {
+                            Send(recieveData.service, responsePacket.PacketToBytes());
+                            break;
+                        }
                     default:
                         break;
                 }
+                DataPacketManager newRecieveData = new DataPacketManager();
+                newRecieveData.service = recieveData.service;
+                newRecieveData.service.BeginReceive(newRecieveData.buffer, 0, DataPacketManager.MAX_SIZE, SocketFlags.None,
+                    new AsyncCallback(RecieveCallback), newRecieveData);
             }
             else
             {
@@ -152,10 +161,6 @@ namespace FakeQQ_Server
                 new AsyncCallback(RecieveCallback), recieveData);*/
                 //完成发送字节数组动作
                 int bytesSent = handler.EndSend(iar);
-                DataPacketManager recieveData = new DataPacketManager();
-                recieveData.service = handler;
-                handler.BeginReceive(recieveData.buffer, 0, DataPacketManager.MAX_SIZE, SocketFlags.None,
-                    new AsyncCallback(RecieveCallback), recieveData);
             }
             catch (Exception e)
             {
@@ -208,8 +213,9 @@ namespace FakeQQ_Server
                                 }
                                 DataReader.Close();
                             }
-                            catch
+                            catch(Exception e)
                             {
+                                Console.WriteLine(e.ToString());
                             }
                             finally
                             {
@@ -322,6 +328,7 @@ namespace FakeQQ_Server
                         string UserId = content["UserID"];
                         bool legal = false;
                         //在数据库中搜索FriendID，判断UserID是否允许加FriendID为好友，若不允许，则只构造一个返回给UserID的包。
+
                         //即使允许加FriendID为好友，若FriendID不在线，则加好友失败。只构造一个返回给UserID的包。
                         for(int i=0; i<onlineList.Count; i++)
                         {
@@ -404,6 +411,16 @@ namespace FakeQQ_Server
                         }*/
                         JavaScriptSerializer js = new JavaScriptSerializer();
                         responsePacket.Content = js.Serialize(friendList);
+                        break;
+                    }
+                case 255:
+                    {
+                        responsePacket.ComputerName = "server";
+                        responsePacket.NameLength = responsePacket.ComputerName.Length;
+                        responsePacket.FromIP = IPAddress.Parse("0.0.0.0");
+                        responsePacket.ToIP = IPAddress.Parse("0.0.0.0");
+                        responsePacket.CommandNo = 255;
+                        responsePacket.Content = "";
                         break;
                     }
                 default:
