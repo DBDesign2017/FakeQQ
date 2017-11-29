@@ -201,8 +201,6 @@ namespace FakeQQ_Server
                                 SqlDataReader DataReader = cmd.ExecuteReader(CommandBehavior.CloseConnection);//使用这种方式构造SqlDataReader类型的对象，能够保证在DataReader关闭后自动Close()对应的SqlConnection类型的对象
                                 while (DataReader.Read())
                                 {
-                                    Console.WriteLine(DataReader["Password"].ToString());
-                                    Console.WriteLine(input_PW);
                                     if (input_PW == DataReader["Password"].ToString().Trim())
                                     {
                                         Correct = true;
@@ -222,12 +220,10 @@ namespace FakeQQ_Server
                         if (Correct == true)
                         {
                             responsePacket.CommandNo = 1;
-                            Console.WriteLine("a user login successful");
                         }
                         else
                         {
                             responsePacket.CommandNo = 2;
-                            Console.WriteLine("a user login failed");
                         }
                         responsePacket.ToIP = packet.FromIP;
                         responsePacket.FromIP = packet.ToIP;
@@ -238,7 +234,6 @@ namespace FakeQQ_Server
                     }
                 case 2://客户端请求注册操作
                     {
-                        Console.WriteLine("a user want to register");
                         //先从数据库找出所有已经已存在的UserID，构造一个尚未存在的UserID
                         int UserID;
                         ArrayList ExistID = new ArrayList(10);
@@ -277,7 +272,6 @@ namespace FakeQQ_Server
                         {
                             dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));//动态的反序列化，不删除Content后面的结束符的话无法反序列化
                             PW = content["Password"];//动态反序列化的结果必须用索引取值
-                            Console.WriteLine("server password" + PW.ToString());
                         }
                         catch (Exception e)
                         {
@@ -317,6 +311,39 @@ namespace FakeQQ_Server
                         responsePacket.FromIP = IPAddress.Parse("0.0.0.0");
                         responsePacket.ToIP = IPAddress.Parse("0.0.0.0");
                         responsePacket.Content = UserID.ToString();
+                        break;
+                    }
+                case 6:
+                    {
+                        Console.WriteLine("operate case 6");
+                        JavaScriptSerializer js = new JavaScriptSerializer();
+                        dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));
+                        string FriendID = content["FriendID"];
+                        string UserId = content["UserID"];
+                        bool legal = false;
+                        //在数据库中搜索FriendID，判断UserID是否允许加FriendID为好友，若不允许，则只构造一个返回给UserID的包。
+                        //即使允许加FriendID为好友，若FriendID不在线，则加好友失败。只构造一个返回给UserID的包。
+                        for(int i=0; i<onlineList.Count; i++)
+                        {
+                            if (((UserIDAndSocket)onlineList[i]).UserID == FriendID) { legal = true; }
+                        }
+                        if(legal == false)
+                        {
+                            responsePacket.CommandNo = 12;
+                            responsePacket.ComputerName = "server";
+                            responsePacket.NameLength = responsePacket.ComputerName.Length;
+                            responsePacket.FromIP = IPAddress.Parse("0.0.0.0");
+                            responsePacket.ToIP = IPAddress.Parse("0.0.0.0");
+                            responsePacket.Content = "错误：当前用户不在线";
+                            Console.WriteLine("FriendID不在线");
+                        }
+                        else
+                        {
+                            Console.WriteLine("FriendID在线");
+                        }
+                        //若FriendID在线，而且UserID可以加FriendID为好友，则构造一个发给FriendID的数据包。
+
+                        //构造返回的数据包
                         break;
                     }
                 case 9://客户端请求下载好友列表
