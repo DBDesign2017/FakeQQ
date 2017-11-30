@@ -25,6 +25,7 @@ namespace FakeQQ_Server
         public static event CrossThreadCallControlHandler OneUserLogin;
         public static void ToOneUserLogin(object sender, EventArgs e)
         {
+            Console.WriteLine("one user login");
             OneUserLogin?.Invoke(sender, e);
         }
         public bool StartServer()
@@ -74,7 +75,16 @@ namespace FakeQQ_Server
         private void RecieveCallback(IAsyncResult iar)
         {
             DataPacketManager recieveData = iar.AsyncState as DataPacketManager;
-            int bytes = recieveData.service.EndReceive(iar);
+            int bytes = 0;
+            try
+            {
+                bytes = recieveData.service.EndReceive(iar);
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine(e.ToString());
+                Console.WriteLine("a client doesnt send anything");
+            }
             if (bytes > 0)
             {
                 DataPacket packet = new DataPacket(recieveData.buffer);
@@ -143,8 +153,16 @@ namespace FakeQQ_Server
             }
             else
             {
-                recieveData.service.BeginReceive(recieveData.buffer, 0, DataPacketManager.MAX_SIZE, SocketFlags.None,
+                try
+                {
+                    recieveData.service.BeginReceive(recieveData.buffer, 0, DataPacketManager.MAX_SIZE, SocketFlags.None,
                 new AsyncCallback(RecieveCallback), recieveData);
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine(e.ToString());
+                    Console.WriteLine("a client shutdown?");
+                }
             }
         }
         private void Send(Socket handler, byte[] buffer)
