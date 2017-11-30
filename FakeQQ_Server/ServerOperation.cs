@@ -436,7 +436,7 @@ namespace FakeQQ_Server
                         if(friendIDIsOnline == false)
                         {
                             responsePacket.CommandNo = 12;
-                            responsePacket.Content = "错误：当前用户不在线";
+                            responsePacket.Content = "错误：该用户现在不在线";
                             Console.WriteLine("FriendID不在线");
                             break;
                         }
@@ -503,6 +503,14 @@ namespace FakeQQ_Server
                         }*/
                         JavaScriptSerializer js = new JavaScriptSerializer();
                         responsePacket.Content = js.Serialize(friendList);
+                        break;
+                    }
+                case 10:
+                    {
+                        JavaScriptSerializer js = new JavaScriptSerializer();
+                        dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));
+                        string UserID = content["UserID"];
+                        string FriendID = content["FriendID"];
                         break;
                     }
                 case 255://客户端启动，请求连接服务端
