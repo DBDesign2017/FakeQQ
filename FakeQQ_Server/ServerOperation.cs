@@ -104,7 +104,7 @@ namespace FakeQQ_Server
                             dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));//动态的反序列化，不删除Content后面的结束符的话无法反序列化
                             UserIDAndSocket line = new UserIDAndSocket();
                             line.UserID = content["UserID"];
-                            line.Service = null/*recieveData.service*/;
+                            line.Service = recieveData.service;
                             onlineList.Add(line);
                             Console.WriteLine("userIDAndSocketList added");
                             //发布OneUserLogin事件
@@ -126,6 +126,11 @@ namespace FakeQQ_Server
                             Send(recieveData.service, responsePacket.PacketToBytes());
                             break;
                         }
+                    case 12://客户端添加好友失败
+                        {
+                            Send(recieveData.service, responsePacket.PacketToBytes());
+                            break;
+                        }
                     case 17://客户端下载好友列表成功
                         {
                             Console.WriteLine("a client want to download friendlist, success");
@@ -136,6 +141,24 @@ namespace FakeQQ_Server
                         {
                             Console.WriteLine("a client want to download friendlist, fail");
                             Send(recieveData.service, responsePacket.PacketToBytes());
+                            break;
+                        }
+                    case 19://客户端请求添加好友，该请求合法，则服务器转发该请求给被申请添加好友的用户
+                        {
+                            Console.WriteLine("a client want to add a friend, legal, sending...");
+                            JavaScriptSerializer js = new JavaScriptSerializer();
+                            dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));
+                            string FriendID = content["FriendID"];
+                            //确定这个包要通过哪个socket转发给用户（这个用户必须在线）
+                            Socket targetSocket = null;
+                            for(int i=0; i<onlineList.Count; i++)
+                            {
+                                if(FriendID == ((UserIDAndSocket)onlineList[i]).UserID)
+                                {
+                                    targetSocket = ((UserIDAndSocket)onlineList[i]).Service;
+                                }
+                            }
+                            Send(targetSocket, responsePacket.PacketToBytes());
                             break;
                         }
                     case 255:
@@ -161,7 +184,7 @@ namespace FakeQQ_Server
                 catch(Exception e)
                 {
                     Console.WriteLine(e.ToString());
-                    Console.WriteLine("a client shutdown?");
+                    Console.WriteLine("a client may has been closed");
                 }
             }
         }
@@ -190,8 +213,8 @@ namespace FakeQQ_Server
         {
             DataPacket responsePacket = new DataPacket();
             responsePacket.CommandNo = 255;//表示数据包里无有效信息
-            responsePacket.ComputerName = "";
-            responsePacket.NameLength = 0;
+            responsePacket.ComputerName = "server";
+            responsePacket.NameLength = responsePacket.ComputerName.Length;
             responsePacket.FromIP = IPAddress.Parse("0.0.0.0");
             responsePacket.ToIP = IPAddress.Parse("0.0.0.0");
             responsePacket.Content = "";
@@ -249,10 +272,6 @@ namespace FakeQQ_Server
                         {
                             responsePacket.CommandNo = 2;
                         }
-                        responsePacket.ToIP = packet.FromIP;
-                        responsePacket.FromIP = packet.ToIP;
-                        responsePacket.ComputerName = "Server";
-                        responsePacket.NameLength = responsePacket.ComputerName.Length;
                         responsePacket.Content = input_ID;
                         break;
                     }
@@ -330,45 +349,100 @@ namespace FakeQQ_Server
                         {
                             responsePacket.CommandNo = 4;
                         }
-                        responsePacket.ComputerName = "server";
-                        responsePacket.NameLength = responsePacket.ComputerName.Length;
-                        responsePacket.FromIP = IPAddress.Parse("0.0.0.0");
-                        responsePacket.ToIP = IPAddress.Parse("0.0.0.0");
                         responsePacket.Content = UserID.ToString();
                         break;
                     }
-                case 6:
+                case 6://客户端请求添加好友操作
                     {
                         Console.WriteLine("operate case 6");
                         JavaScriptSerializer js = new JavaScriptSerializer();
                         dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));
                         string FriendID = content["FriendID"];
-                        string UserId = content["UserID"];
-                        bool legal = false;
-                        //在数据库中搜索FriendID，判断UserID是否允许加FriendID为好友，若不允许，则只构造一个返回给UserID的包。
-
-                        //即使允许加FriendID为好友，若FriendID不在线，则加好友失败。只构造一个返回给UserID的包。
-                        for(int i=0; i<onlineList.Count; i++)
+                        string UserID = content["UserID"];
+                        //在数据库中搜索FriendID，判断UserID是否已经加FriendID为好友，若是，则添加好友失败，只构造一个返回给UserID的包。
+                        bool isFriendAlready = false;
+                        SqlConnection conn = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                        SqlCommand cmd = new SqlCommand("select FriendID from dbo.Friends where ID='" + UserID + "'", conn);
+                        if (conn.State == ConnectionState.Closed)
                         {
-                            if (((UserIDAndSocket)onlineList[i]).UserID == FriendID) { legal = true; }
+                            try
+                            {
+                                conn.Open();
+                                SqlDataReader DataReader = cmd.ExecuteReader(CommandBehavior.CloseConnection);//使用这种方式构造SqlDataReader类型的对象，能够保证在DataReader关闭后自动Close()对应的SqlConnection类型的对象
+                                while (DataReader.Read())
+                                {
+                                    if (FriendID == DataReader["FriendID"].ToString().Trim())
+                                    {
+                                        isFriendAlready = true;
+                                    }
+                                }
+                                DataReader.Close();
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine(e.ToString());
+                            }
+                            finally
+                            {
+                                conn.Close();
+                            }
                         }
-                        if(legal == false)
+                        if (isFriendAlready)
                         {
                             responsePacket.CommandNo = 12;
-                            responsePacket.ComputerName = "server";
-                            responsePacket.NameLength = responsePacket.ComputerName.Length;
-                            responsePacket.FromIP = IPAddress.Parse("0.0.0.0");
-                            responsePacket.ToIP = IPAddress.Parse("0.0.0.0");
+                            responsePacket.Content = "错误：你和该用户已经是好友了";
+                            break;
+                        }
+                        //即使UserID和FriendID还不是好友，如果User表中不存在FriendID，则添加好友也失败，只构造一个返回给UserID的包。
+                        bool friendIDExist = false;
+                        SqlConnection friendIDExistConnect = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                        SqlCommand friendIDExistCmd = new SqlCommand("select UserID from dbo.Users where UserID='" + FriendID + "'", friendIDExistConnect);
+                        if (friendIDExistConnect.State == ConnectionState.Closed)
+                        {
+                            try
+                            {
+                                friendIDExistConnect.Open();
+                                SqlDataReader DataReader = friendIDExistCmd.ExecuteReader(CommandBehavior.CloseConnection);//使用这种方式构造SqlDataReader类型的对象，能够保证在DataReader关闭后自动Close()对应的SqlConnection类型的对象
+                                while (DataReader.Read())
+                                {
+                                    if (FriendID == DataReader["UserID"].ToString().Trim())
+                                    {
+                                        friendIDExist = true;
+                                    }
+                                }
+                                DataReader.Close();
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine(e.ToString());
+                            }
+                            finally
+                            {
+                                friendIDExistConnect.Close();
+                            }
+                        }
+                        if (!friendIDExist)
+                        {
+                            responsePacket.CommandNo = 12;
+                            responsePacket.Content = "错误：不存在这样的用户";
+                            break;
+                        }
+                        //即使允许加FriendID为好友，若FriendID不在线，则加好友失败。只构造一个返回给UserID的包。
+                        bool friendIDIsOnline = false;
+                        for (int i=0; i<onlineList.Count; i++)
+                        {
+                            if (((UserIDAndSocket)onlineList[i]).UserID == FriendID) { friendIDIsOnline = true; }
+                        }
+                        if(friendIDIsOnline == false)
+                        {
+                            responsePacket.CommandNo = 12;
                             responsePacket.Content = "错误：当前用户不在线";
                             Console.WriteLine("FriendID不在线");
+                            break;
                         }
-                        else
-                        {
-                            Console.WriteLine("FriendID在线");
-                        }
-                        //若FriendID在线，而且UserID可以加FriendID为好友，则构造一个发给FriendID的数据包。
-
-                        //构造返回的数据包
+                        //若FriendID在线，而且UserID可以加FriendID为好友，则构造一个发给FriendID的数据包，内容是UserID的请求信息。
+                        responsePacket.CommandNo = 19;
+                        responsePacket.Content = packet.Content;
                         break;
                     }
                 case 9://客户端请求下载好友列表
@@ -431,7 +505,7 @@ namespace FakeQQ_Server
                         responsePacket.Content = js.Serialize(friendList);
                         break;
                     }
-                case 255:
+                case 255://客户端启动，请求连接服务端
                     {
                         responsePacket.ComputerName = "server";
                         responsePacket.NameLength = responsePacket.ComputerName.Length;
