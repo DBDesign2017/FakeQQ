@@ -13,6 +13,7 @@ namespace FakeQQ_Server
 {
     public partial class Form1 : Form
     {
+        private string DataSourceName = "C418";
         public Form1()
         {
             InitializeComponent();
@@ -23,7 +24,7 @@ namespace FakeQQ_Server
             string input_ID = textBox1.Text.Trim();
             string input_PW = textBox2.Text.Trim();
             bool Correct = false;
-            SqlConnection conn = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+            SqlConnection conn = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
             SqlCommand cmd = new SqlCommand("select Password from dbo.Administrator where AdministratorID='" + input_ID + "'", conn);
             if (conn.State == ConnectionState.Closed)
             {

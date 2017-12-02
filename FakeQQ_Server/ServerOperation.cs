@@ -18,6 +18,7 @@ namespace FakeQQ_Server
 {
     class ServerOperation
     {
+        private string DataSourceName = "C418";
         private Socket server;
         private ArrayList onlineList = new ArrayList();
 
@@ -250,7 +251,7 @@ namespace FakeQQ_Server
                         }
 
                         bool Correct = false;
-                        SqlConnection conn = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                        SqlConnection conn = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
                         SqlCommand cmd = new SqlCommand("select Password from dbo.Users where UserID='" + input_ID + "'", conn);
                         if (conn.State == ConnectionState.Closed)
                         {
@@ -294,7 +295,7 @@ namespace FakeQQ_Server
                         int UserID;
                         ArrayList ExistID = new ArrayList(10);
 
-                        SqlConnection selectConnect = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                        SqlConnection selectConnect = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
                         SqlCommand selectCmd = new SqlCommand("select UserID from dbo.Users", selectConnect);
                         if (selectConnect.State == ConnectionState.Closed)
                         {
@@ -333,7 +334,7 @@ namespace FakeQQ_Server
                         {
                             Console.WriteLine(e.ToString());
                         }
-                        SqlConnection insertConnect = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                        SqlConnection insertConnect = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
                         SqlCommand insertCmd = new SqlCommand("insert into dbo.Users values('" + UserID.ToString() + "', null, '" + PW + "', null, null, null, null, null, null, null, null, null)", insertConnect);
                         bool registerSuccess = true;
                         if (insertConnect.State == ConnectionState.Closed)/*有问题，但是没出错*/
@@ -374,7 +375,7 @@ namespace FakeQQ_Server
                         string UserID = content["UserID"];
                         //在数据库中搜索FriendID，判断UserID是否已经加FriendID为好友，若是，则添加好友失败，只构造一个返回给UserID的包。
                         bool isFriendAlready = false;
-                        SqlConnection conn = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                        SqlConnection conn = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
                         SqlCommand cmd = new SqlCommand("select FriendID from dbo.Friends where ID='" + UserID + "'", conn);
                         if (conn.State == ConnectionState.Closed)
                         {
@@ -408,7 +409,7 @@ namespace FakeQQ_Server
                         }
                         //即使UserID和FriendID还不是好友，如果User表中不存在FriendID，则添加好友也失败，只构造一个返回给UserID的包。
                         bool friendIDExist = false;
-                        SqlConnection friendIDExistConnect = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                        SqlConnection friendIDExistConnect = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
                         SqlCommand friendIDExistCmd = new SqlCommand("select UserID from dbo.Users where UserID='" + FriendID + "'", friendIDExistConnect);
                         if (friendIDExistConnect.State == ConnectionState.Closed)
                         {
@@ -472,7 +473,7 @@ namespace FakeQQ_Server
                         bool success = false;
                         try
                         {
-                            SqlConnection selectConnect = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                            SqlConnection selectConnect = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
                             SqlCommand selectCmd = new SqlCommand("select FriendID from dbo.Friends where ID='" + UserID + "'", selectConnect);
                             if (selectConnect.State == ConnectionState.Closed)
                             {
@@ -525,7 +526,7 @@ namespace FakeQQ_Server
                         string UserID = content["UserID"];
                         string FriendID = content["FriendID"];
                         //添加好友关系到数据库（有两行：a和b是好友、b和a是好友）
-                        SqlConnection insertConnect = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                        SqlConnection insertConnect = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
                         SqlCommand insertCmd = new SqlCommand("insert into dbo.Friends values('" + UserID + "', '" + FriendID + "')", insertConnect);
                         SqlCommand reverseInsertCmd = new SqlCommand("insert into dbo.Friends values('" + FriendID + "', '" + UserID + "')", insertConnect);
                         if (insertConnect.State == ConnectionState.Closed)
