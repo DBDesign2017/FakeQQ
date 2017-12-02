@@ -161,6 +161,19 @@ namespace FakeQQ_Server
                             Send(targetSocket, responsePacket.PacketToBytes());
                             break;
                         }
+                    case 20://收到添加好友申请用户同意了好友申请，现在向发起好友申请的客户端发送消息，使之更新好友列表
+                        {
+                            JavaScriptSerializer js = new JavaScriptSerializer();
+                            dynamic content = js.Deserialize<dynamic>(responsePacket.Content.Replace("\0", ""));
+                            for (int i = 0; i < onlineList.Count; i++)
+                            {
+                                if (((UserIDAndSocket)onlineList[i]).UserID == content["UserID"])
+                                {
+                                    Send(((UserIDAndSocket)onlineList[i]).Service, responsePacket.PacketToBytes());
+                                }
+                            }
+                            break;
+                        }
                     case 255:
                         {
                             Send(recieveData.service, responsePacket.PacketToBytes());
@@ -323,7 +336,7 @@ namespace FakeQQ_Server
                         SqlConnection insertConnect = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
                         SqlCommand insertCmd = new SqlCommand("insert into dbo.Users values('" + UserID.ToString() + "', null, '" + PW + "', null, null, null, null, null, null, null, null, null)", insertConnect);
                         bool registerSuccess = true;
-                        if (selectConnect.State == ConnectionState.Closed)
+                        if (insertConnect.State == ConnectionState.Closed)/*有问题，但是没出错*/
                         {
                             try
                             {
@@ -337,7 +350,7 @@ namespace FakeQQ_Server
                             }
                             finally
                             {
-                                selectConnect.Close();
+                                insertConnect.Close();
                             }
                         }
                         //构造要发送的数据包
@@ -505,12 +518,38 @@ namespace FakeQQ_Server
                         responsePacket.Content = js.Serialize(friendList);
                         break;
                     }
-                case 10:
+                case 10://收到添加好友申请用户同意了好友申请
                     {
                         JavaScriptSerializer js = new JavaScriptSerializer();
                         dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));
                         string UserID = content["UserID"];
                         string FriendID = content["FriendID"];
+                        //添加好友关系到数据库（有两行：a和b是好友、b和a是好友）
+                        SqlConnection insertConnect = new SqlConnection("Data Source=C418;Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                        SqlCommand insertCmd = new SqlCommand("insert into dbo.Friends values('" + UserID + "', '" + FriendID + "')", insertConnect);
+                        SqlCommand reverseInsertCmd = new SqlCommand("insert into dbo.Friends values('" + FriendID + "', '" + UserID + "')", insertConnect);
+                        if (insertConnect.State == ConnectionState.Closed)
+                        {
+                            try
+                            {
+                                insertConnect.Open();
+                                insertCmd.ExecuteNonQuery();//使用这种方式构造SqlDataReader类型的对象，能够保证在DataReader关闭后自动Close()对应的SqlConnection类型的对象
+                                reverseInsertCmd.ExecuteNonQuery();
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine(e.ToString());
+                            }
+                            finally
+                            {
+                                insertConnect.Close();
+                            }
+                        }
+                        //发包提示好友申请发起者，别人已经同意添加好友
+                        //...
+                        responsePacket.CommandNo = 20;
+                        responsePacket.Content = packet.Content;
+                        //...
                         break;
                     }
                 case 255://客户端启动，请求连接服务端
