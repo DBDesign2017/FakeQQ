@@ -20,6 +20,7 @@ namespace FakeQQ_Server
     {
         private string DataSourceName = "C418";
         private Socket server;
+        bool serverIsRunning = false;
         private ArrayList onlineList = new ArrayList();
 
         public delegate void CrossThreadCallControlHandler(object sender, EventArgs e);
@@ -29,6 +30,8 @@ namespace FakeQQ_Server
             Console.WriteLine("one user login");
             OneUserLogin?.Invoke(sender, e);
         }
+
+        //启动服务
         public bool StartServer()
         {
             bool success = false;
@@ -50,8 +53,11 @@ namespace FakeQQ_Server
                 MessageBox.Show(e.ToString());
                 success = false;
             }
+            serverIsRunning = true;
             return success;
         }
+
+        //关闭服务
         public bool CloseServer()
         {
             server.Close();
@@ -59,7 +65,26 @@ namespace FakeQQ_Server
             {
                 ((UserIDAndSocket)onlineList[i]).Service.Close();
             }
+            serverIsRunning = false;
             return true;
+        }
+
+        //发布系统消息
+        public void ReleaseSystemMessage(string message)
+        {
+            //构造数据包
+            DataPacket packet = new DataPacket();
+            packet.CommandNo = 24;
+            packet.Content = message;
+            packet.ComputerName = "server";
+            packet.NameLength = packet.ComputerName.Length;
+            packet.FromIP = IPAddress.Parse("0.0.0.0");
+            packet.ToIP = IPAddress.Parse("0.0.0.0");
+            //将该数据包发送给所有在线用户
+            for(int i=0; i<onlineList.Count; i++)
+            {
+                Send(((UserIDAndSocket)onlineList[i]).Service, packet.PacketToBytes());
+            }
         }
         private void AcceptCallback(IAsyncResult iar)
         {
@@ -202,27 +227,6 @@ namespace FakeQQ_Server
                 }
             }
         }
-        private void Send(Socket handler, byte[] buffer)
-        {
-            handler.BeginSend(buffer, 0, buffer.Length, 0, new AsyncCallback(SendCallback), handler);
-        }
-        private void SendCallback(IAsyncResult iar)
-        {
-            try
-            {
-                //重新获取socket
-                Socket handler = (Socket)iar.AsyncState;
-                /*service.BeginReceive(recieveData.buffer, 0, DataPacketManager.MAX_SIZE, SocketFlags.None,
-                new AsyncCallback(RecieveCallback), recieveData);*/
-                //完成发送字节数组动作
-                int bytesSent = handler.EndSend(iar);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.ToString());
-            }
-        }
-
         public DataPacket Operate(DataPacket packet, Socket service)
         {
             DataPacket responsePacket = new DataPacket();
@@ -567,6 +571,32 @@ namespace FakeQQ_Server
                     break;
             }
             return responsePacket;
+        }
+        private void Send(Socket handler, byte[] buffer)
+        {
+            handler.BeginSend(buffer, 0, buffer.Length, 0, new AsyncCallback(SendCallback), handler);
+        }
+        private void SendCallback(IAsyncResult iar)
+        {
+            try
+            {
+                //重新获取socket
+                Socket handler = (Socket)iar.AsyncState;
+                /*service.BeginReceive(recieveData.buffer, 0, DataPacketManager.MAX_SIZE, SocketFlags.None,
+                new AsyncCallback(RecieveCallback), recieveData);*/
+                //完成发送字节数组动作
+                int bytesSent = handler.EndSend(iar);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+            }
+        }
+
+
+        public bool ServerIsRunning
+        {
+            get{ return serverIsRunning; }
         }
     }
 }

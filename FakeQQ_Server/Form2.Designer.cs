@@ -33,8 +33,12 @@
             this.listBox1 = new System.Windows.Forms.ListBox();
             this.button1 = new System.Windows.Forms.Button();
             this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.releaseSystemMessageWarning = new System.Windows.Forms.Label();
+            this.systemMessageButton = new System.Windows.Forms.Button();
+            this.systemMessageTextBox = new System.Windows.Forms.TextBox();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
+            this.tabPage2.SuspendLayout();
             this.SuspendLayout();
             // 
             // tabControl1
@@ -83,13 +87,44 @@
             // 
             // tabPage2
             // 
+            this.tabPage2.Controls.Add(this.releaseSystemMessageWarning);
+            this.tabPage2.Controls.Add(this.systemMessageButton);
+            this.tabPage2.Controls.Add(this.systemMessageTextBox);
             this.tabPage2.Location = new System.Drawing.Point(4, 22);
             this.tabPage2.Name = "tabPage2";
             this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
             this.tabPage2.Size = new System.Drawing.Size(501, 410);
             this.tabPage2.TabIndex = 1;
-            this.tabPage2.Text = "tabPage2";
+            this.tabPage2.Text = "发布系统消息";
             this.tabPage2.UseVisualStyleBackColor = true;
+            // 
+            // releaseSystemMessageWarning
+            // 
+            this.releaseSystemMessageWarning.AutoSize = true;
+            this.releaseSystemMessageWarning.Location = new System.Drawing.Point(7, 12);
+            this.releaseSystemMessageWarning.Name = "releaseSystemMessageWarning";
+            this.releaseSystemMessageWarning.Size = new System.Drawing.Size(359, 12);
+            this.releaseSystemMessageWarning.TabIndex = 2;
+            this.releaseSystemMessageWarning.Text = "注意：此消息将被发送给所有在线用户，而且您最多能输入100个字";
+            // 
+            // systemMessageButton
+            // 
+            this.systemMessageButton.Location = new System.Drawing.Point(420, 129);
+            this.systemMessageButton.Name = "systemMessageButton";
+            this.systemMessageButton.Size = new System.Drawing.Size(75, 23);
+            this.systemMessageButton.TabIndex = 1;
+            this.systemMessageButton.Text = "发布";
+            this.systemMessageButton.UseVisualStyleBackColor = true;
+            this.systemMessageButton.Click += new System.EventHandler(this.systemMessageButton_Click);
+            // 
+            // systemMessageTextBox
+            // 
+            this.systemMessageTextBox.Location = new System.Drawing.Point(7, 30);
+            this.systemMessageTextBox.MaxLength = 100;
+            this.systemMessageTextBox.Multiline = true;
+            this.systemMessageTextBox.Name = "systemMessageTextBox";
+            this.systemMessageTextBox.Size = new System.Drawing.Size(488, 83);
+            this.systemMessageTextBox.TabIndex = 0;
             // 
             // Form2
             // 
@@ -101,6 +136,8 @@
             this.Text = "FakeQQ服务端";
             this.tabControl1.ResumeLayout(false);
             this.tabPage1.ResumeLayout(false);
+            this.tabPage2.ResumeLayout(false);
+            this.tabPage2.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -112,5 +149,8 @@
         private System.Windows.Forms.TabPage tabPage2;
         public System.Windows.Forms.ListBox listBox1;
         private System.Windows.Forms.Button button1;
+        private System.Windows.Forms.Button systemMessageButton;
+        private System.Windows.Forms.TextBox systemMessageTextBox;
+        private System.Windows.Forms.Label releaseSystemMessageWarning;
     }
 }

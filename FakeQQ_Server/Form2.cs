@@ -15,11 +15,12 @@ namespace FakeQQ_Server
 {
     public partial class Form2 : Form
     {
-        bool ServerIsRunning = false;
         private ArrayList onlineUserID = new ArrayList();
+        private ServerOperation s;
         public Form2()
         {
             InitializeComponent();
+            s = new ServerOperation();
             ServerOperation.OneUserLogin += new ServerOperation.CrossThreadCallControlHandler(OneUserLogin);
         }
 
@@ -27,19 +28,16 @@ namespace FakeQQ_Server
 
         private void button1_Click(object sender, EventArgs e)
         {
-            if (ServerIsRunning == false)
+            if (s.ServerIsRunning == false)
             {//进行启动服务操作
-                ServerOperation s = new ServerOperation();
                 s.StartServer();
                 button1.Text = "关闭服务";
-                ServerIsRunning = true;
             }
             else
             {//进行关闭服务操作
                 ServerOperation s = new ServerOperation();
                 s.CloseServer();
                 button1.Text = "启动服务";
-                ServerIsRunning = false;
             }
         }
 
@@ -57,8 +55,16 @@ namespace FakeQQ_Server
                 listBox1.Items.Clear();
                 for(int i=0; i<onlineUserID.Count; i++)
                 {
-                    listBox1.Items.Add("用户" + onlineUserID[i].ToString() + "登录");
+                    listBox1.Items.Add("用户" + onlineUserID[i].ToString() + "在线");
                 }
+            }
+        }
+
+        private void systemMessageButton_Click(object sender, EventArgs e)
+        {
+            if (MessageBox.Show("确定要发布吗？", "发布系统消息", MessageBoxButtons.YesNo) == DialogResult.Yes)
+            {
+                s.ReleaseSystemMessage(systemMessageTextBox.Text.Trim());
             }
         }
     }
