@@ -487,7 +487,18 @@ namespace FakeQQ_Server
                                     SqlDataReader DataReader = selectCmd.ExecuteReader(CommandBehavior.CloseConnection);//使用这种方式构造SqlDataReader类型的对象，能够保证在DataReader关闭后自动Close()对应的SqlConnection类型的对象
                                     while (DataReader.Read())
                                     {
-                                        friendList.Add(DataReader["FriendID"].ToString());
+                                        FriendListItem item = new FriendListItem();
+                                        item.UserID = DataReader["FriendID"].ToString();
+                                        item.IsOnline = false;
+                                        for(int i=0; i<onlineList.Count; i++)
+                                        {
+                                            if(((UserIDAndSocket)onlineList[i]).UserID == item.UserID)
+                                            {
+                                                item.IsOnline = true;
+                                                break;
+                                            }
+                                        }
+                                        friendList.Add(item);
                                     }
                                     DataReader.Close();
                                 }
@@ -515,10 +526,6 @@ namespace FakeQQ_Server
                         {
                             responsePacket.CommandNo = 18;
                         }
-                        /*for(int i=0; i<friendList.Count; i++)
-                        {
-                            Console.WriteLine(friendList[i].ToString());//从数据库中找到的数据没问题
-                        }*/
                         JavaScriptSerializer js = new JavaScriptSerializer();
                         responsePacket.Content = js.Serialize(friendList);
                         break;
