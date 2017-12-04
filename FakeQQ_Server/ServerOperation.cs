@@ -133,6 +133,54 @@ namespace FakeQQ_Server
                             line.Service = recieveData.service;
                             onlineList.Add(line);
                             Console.WriteLine("userIDAndSocketList added");
+                            //向该用户的所有好友发送信息，提示该用户上线了
+                            //...
+                            try
+                            {
+                                SqlConnection selectConnect = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                                SqlCommand selectCmd = new SqlCommand("select FriendID from dbo.Friends where ID='" + line.UserID + "'", selectConnect);
+                                if (selectConnect.State == ConnectionState.Closed)
+                                {
+                                    try
+                                    {
+                                        selectConnect.Open();
+                                        SqlDataReader DataReader = selectCmd.ExecuteReader(CommandBehavior.CloseConnection);//使用这种方式构造SqlDataReader类型的对象，能够保证在DataReader关闭后自动Close()对应的SqlConnection类型的对象
+                                        while (DataReader.Read())//每找到一个该用户的好友
+                                        {
+                                            string friendID = DataReader["FriendID"].ToString();
+                                            //在 在线用户表 里面寻找该用户的这个好友在不在线，若在线，就将该用户的上线信息发送给该好友
+                                            for (int i = 0; i < onlineList.Count; i++)
+                                            {
+                                                if (((UserIDAndSocket)onlineList[i]).UserID == friendID)
+                                                {
+                                                    DataPacket tempPacket = new DataPacket();
+                                                    tempPacket.CommandNo = 25;
+                                                    tempPacket.Content = line.UserID;
+                                                    tempPacket.ComputerName = "server";
+                                                    tempPacket.NameLength = tempPacket.ComputerName.Length;
+                                                    tempPacket.FromIP = IPAddress.Parse("0.0.0.0");
+                                                    tempPacket.ToIP = IPAddress.Parse("0.0.0.0");
+                                                    Send(((UserIDAndSocket)onlineList[i]).Service, tempPacket.PacketToBytes());
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        DataReader.Close();
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        Console.WriteLine(e.ToString());
+                                    }
+                                    finally
+                                    {
+                                        selectConnect.Close();
+                                    }
+                                }
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine(e.ToString());
+                            }
                             //发布OneUserLogin事件
                             ToOneUserLogin(null, line);
                             break;
