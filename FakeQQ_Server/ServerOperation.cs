@@ -248,6 +248,27 @@ namespace FakeQQ_Server
                             }
                             break;
                         }
+                    case 21://客户端请求发送即时消息合法，予以转发
+                        {
+                            JavaScriptSerializer js = new JavaScriptSerializer();
+                            dynamic content = js.Deserialize<dynamic>(responsePacket.Content.Replace("\0", ""));
+                            string targetUserID = content["TargetUserID"];
+                            bool success = false;
+                            for(int i=0; i<onlineList.Count; i++)
+                            {
+                                if(targetUserID == ((UserIDAndSocket)onlineList[i]).UserID)
+                                {
+                                    Send(((UserIDAndSocket)onlineList[i]).Service, responsePacket.PacketToBytes());
+                                    success = true;
+                                }
+                            }
+                            break;
+                        }
+                    case 26://客户端请求发送即时消息非法，打回到原客户端
+                        {
+                            Send(recieveData.service, responsePacket.PacketToBytes());
+                            break;
+                        }
                     case 255:
                         {
                             Send(recieveData.service, responsePacket.PacketToBytes());
@@ -610,6 +631,33 @@ namespace FakeQQ_Server
                         responsePacket.CommandNo = 20;
                         responsePacket.Content = packet.Content;
                         //...
+                        break;
+                    }
+                case 11://客户端请求发送即时消息
+                    {
+                        JavaScriptSerializer js = new JavaScriptSerializer();
+                        dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));
+                        string targetUserID = content["TargetUserID"];
+                        //判断目标用户是否在线
+                        bool isOnline = false;
+                        for(int i=0; i<onlineList.Count; i++)
+                        {
+                            if (((UserIDAndSocket)onlineList[i]).UserID == targetUserID)
+                            {
+                                isOnline = true;
+                                break;
+                            }
+                        }
+                        if (isOnline)
+                        {
+                            responsePacket.CommandNo = 21;
+                            responsePacket.Content = packet.Content;
+                        }
+                        else
+                        {
+                            responsePacket.CommandNo = 26;
+                            responsePacket.Content = "发送失败";
+                        }
                         break;
                     }
                 case 255://客户端启动，请求连接服务端
