@@ -19,18 +19,27 @@ namespace FakeQQ_Server
     class ServerOperation
     {
         private string DataSourceName = "C418";
+        private string AdministratorID;
         private Socket server;
         bool serverIsRunning = false;
         private ArrayList onlineList = new ArrayList();
 
         public delegate void CrossThreadCallControlHandler(object sender, EventArgs e);
         public static event CrossThreadCallControlHandler OneUserLogin;
+        public static event CrossThreadCallControlHandler AdministratorModifyPassword;
         public static void ToOneUserLogin(object sender, EventArgs e)
         {
             Console.WriteLine("one user login");
             OneUserLogin?.Invoke(sender, e);
         }
-
+        public static void ToAdministratorModifyPassword(object sender, EventArgs e)
+        {
+            AdministratorModifyPassword?.Invoke(sender, e);
+        }
+        public ServerOperation(string AdministratorID)
+        {
+            this.AdministratorID = AdministratorID;
+        }
         //启动服务
         public bool StartServer()
         {
@@ -85,6 +94,66 @@ namespace FakeQQ_Server
             {
                 Send(((UserIDAndSocket)onlineList[i]).Service, packet.PacketToBytes());
             }
+        }
+
+        //管理员修改自己的密码
+        public void ChangeAdministratorPassword(string oldPassword, string newPassword)
+        {
+            Console.WriteLine("Administrator " + AdministratorID + "want to modify its password");
+            bool Correct = false;
+            SqlConnection conn = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
+            SqlCommand cmd = new SqlCommand("select Password from dbo.Administrator where AdministratorID='" + AdministratorID + "'", conn);
+            if (conn.State == ConnectionState.Closed)
+            {
+                try
+                {
+                    conn.Open();
+                    SqlDataReader DataReader = cmd.ExecuteReader(CommandBehavior.CloseConnection);//使用这种方式构造SqlDataReader类型的对象，能够保证在DataReader关闭后自动Close()对应的SqlConnection类型的对象
+                    while (DataReader.Read())
+                    {
+                        if (oldPassword == DataReader["Password"].ToString().Trim())
+                        {
+                            Correct = true;
+                        }
+                    }
+                    DataReader.Close();
+                }
+                catch
+                {
+                    MessageBox.Show("错误！连接或查询数据库时出错");
+                }
+                finally
+                {
+                    conn.Close();
+                }
+            }
+            DataPacket temp = new DataPacket();
+            temp.Content = "";
+            if (Correct)//旧密码输入正确，现在修改数据库中的密码为新密码
+            {
+                try
+                {
+                    conn = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                    cmd = new SqlCommand("update dbo.Administrator set Password = '" + newPassword + "' where AdministratorID='" + AdministratorID + "'", conn);
+                    conn.Open();
+                    cmd.ExecuteReader(CommandBehavior.CloseConnection);
+                    temp.Content = "修改成功";
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine(e.ToString());
+                    temp.Content = "数据库错误，修改失败";
+                }
+                finally
+                {
+                    conn.Close();
+                }
+            }
+            else
+            {
+                temp.Content = "旧密码输入错误";
+            }
+            ToAdministratorModifyPassword(null, temp);
         }
         private void AcceptCallback(IAsyncResult iar)
         {
@@ -696,7 +765,9 @@ namespace FakeQQ_Server
             }
         }
 
-
+        /// <summary>
+        /// getter setter
+        /// </summary>
         public bool ServerIsRunning
         {
             get{ return serverIsRunning; }

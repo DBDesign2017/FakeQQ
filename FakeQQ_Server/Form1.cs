@@ -58,7 +58,7 @@ namespace FakeQQ_Server
                 this.Close();
                 new System.Threading.Thread(() =>
                 {
-                    Application.Run(new Form2());
+                    Application.Run(new Form2(input_ID));
                 }).Start();
             }
             else
