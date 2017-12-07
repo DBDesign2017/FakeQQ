@@ -22,15 +22,15 @@ namespace FakeQQ_Server
         private string AdministratorID;
         private Socket server;
         bool serverIsRunning = false;
-        private ArrayList onlineList = new ArrayList();
+        public ArrayList onlineUserList = new ArrayList();
 
         public delegate void CrossThreadCallControlHandler(object sender, EventArgs e);
-        public static event CrossThreadCallControlHandler OneUserLogin;
+        public static event CrossThreadCallControlHandler UpdateOnlineUserList;
         public static event CrossThreadCallControlHandler AdministratorModifyPassword;
-        public static void ToOneUserLogin(object sender, EventArgs e)
+        public static void ToUpdateOnlineUserList(object sender, EventArgs e)
         {
             Console.WriteLine("one user login");
-            OneUserLogin?.Invoke(sender, e);
+            UpdateOnlineUserList?.Invoke(sender, e);
         }
         public static void ToAdministratorModifyPassword(object sender, EventArgs e)
         {
@@ -70,12 +70,21 @@ namespace FakeQQ_Server
         public bool CloseServer()
         {
             server.Close();
-            for(int i=0; i<onlineList.Count; i++)
+            for(int i=0; i<onlineUserList.Count; i++)
             {
-                ((UserIDAndSocket)onlineList[i]).Service.Close();
+                ((UserIDAndSocket)onlineUserList[i]).Service.Close();
             }
             serverIsRunning = false;
             return true;
+        }
+
+        //监测客户端是否掉线
+        public void CheckOnlineUserList(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            if (onlineUserList.Count > 0)
+            {
+                Console.WriteLine("server check heart beat :" + ((UserIDAndSocket)onlineUserList[0]).LastHeartBeatTime.ToString());
+            }
         }
 
         //发布系统消息
@@ -90,9 +99,9 @@ namespace FakeQQ_Server
             packet.FromIP = IPAddress.Parse("0.0.0.0");
             packet.ToIP = IPAddress.Parse("0.0.0.0");
             //将该数据包发送给所有在线用户
-            for(int i=0; i<onlineList.Count; i++)
+            for(int i=0; i<onlineUserList.Count; i++)
             {
-                Send(((UserIDAndSocket)onlineList[i]).Service, packet.PacketToBytes());
+                Send(((UserIDAndSocket)onlineUserList[i]).Service, packet.PacketToBytes());
             }
         }
 
@@ -200,7 +209,8 @@ namespace FakeQQ_Server
                             UserIDAndSocket line = new UserIDAndSocket();
                             line.UserID = content["UserID"];
                             line.Service = recieveData.service;
-                            onlineList.Add(line);
+                            line.LastHeartBeatTime = DateTime.Now;
+                            onlineUserList.Add(line);
                             Console.WriteLine("userIDAndSocketList added");
                             //向该用户的所有好友发送信息，提示该用户上线了
                             //...
@@ -218,9 +228,9 @@ namespace FakeQQ_Server
                                         {
                                             string friendID = DataReader["FriendID"].ToString();
                                             //在 在线用户表 里面寻找该用户的这个好友在不在线，若在线，就将该用户的上线信息发送给该好友
-                                            for (int i = 0; i < onlineList.Count; i++)
+                                            for (int i = 0; i < onlineUserList.Count; i++)
                                             {
-                                                if (((UserIDAndSocket)onlineList[i]).UserID == friendID)
+                                                if (((UserIDAndSocket)onlineUserList[i]).UserID == friendID)
                                                 {
                                                     DataPacket tempPacket = new DataPacket();
                                                     tempPacket.CommandNo = 25;
@@ -229,7 +239,7 @@ namespace FakeQQ_Server
                                                     tempPacket.NameLength = tempPacket.ComputerName.Length;
                                                     tempPacket.FromIP = IPAddress.Parse("0.0.0.0");
                                                     tempPacket.ToIP = IPAddress.Parse("0.0.0.0");
-                                                    Send(((UserIDAndSocket)onlineList[i]).Service, tempPacket.PacketToBytes());
+                                                    Send(((UserIDAndSocket)onlineUserList[i]).Service, tempPacket.PacketToBytes());
                                                     break;
                                                 }
                                             }
@@ -251,7 +261,7 @@ namespace FakeQQ_Server
                                 Console.WriteLine(e.ToString());
                             }
                             //发布OneUserLogin事件
-                            ToOneUserLogin(null, line);
+                            ToUpdateOnlineUserList(null, null);
                             break;
                         }
                     case 2://客户端登录失败
@@ -294,11 +304,11 @@ namespace FakeQQ_Server
                             string FriendID = content["FriendID"];
                             //确定这个包要通过哪个socket转发给用户（这个用户必须在线）
                             Socket targetSocket = null;
-                            for(int i=0; i<onlineList.Count; i++)
+                            for(int i=0; i<onlineUserList.Count; i++)
                             {
-                                if(FriendID == ((UserIDAndSocket)onlineList[i]).UserID)
+                                if(FriendID == ((UserIDAndSocket)onlineUserList[i]).UserID)
                                 {
-                                    targetSocket = ((UserIDAndSocket)onlineList[i]).Service;
+                                    targetSocket = ((UserIDAndSocket)onlineUserList[i]).Service;
                                 }
                             }
                             Send(targetSocket, responsePacket.PacketToBytes());
@@ -308,11 +318,11 @@ namespace FakeQQ_Server
                         {
                             JavaScriptSerializer js = new JavaScriptSerializer();
                             dynamic content = js.Deserialize<dynamic>(responsePacket.Content.Replace("\0", ""));
-                            for (int i = 0; i < onlineList.Count; i++)
+                            for (int i = 0; i < onlineUserList.Count; i++)
                             {
-                                if (((UserIDAndSocket)onlineList[i]).UserID == content["UserID"])
+                                if (((UserIDAndSocket)onlineUserList[i]).UserID == content["UserID"])
                                 {
-                                    Send(((UserIDAndSocket)onlineList[i]).Service, responsePacket.PacketToBytes());
+                                    Send(((UserIDAndSocket)onlineUserList[i]).Service, responsePacket.PacketToBytes());
                                 }
                             }
                             break;
@@ -323,11 +333,11 @@ namespace FakeQQ_Server
                             dynamic content = js.Deserialize<dynamic>(responsePacket.Content.Replace("\0", ""));
                             string targetUserID = content["TargetUserID"];
                             bool success = false;
-                            for(int i=0; i<onlineList.Count; i++)
+                            for(int i=0; i<onlineUserList.Count; i++)
                             {
-                                if(targetUserID == ((UserIDAndSocket)onlineList[i]).UserID)
+                                if(targetUserID == ((UserIDAndSocket)onlineUserList[i]).UserID)
                                 {
-                                    Send(((UserIDAndSocket)onlineList[i]).Service, responsePacket.PacketToBytes());
+                                    Send(((UserIDAndSocket)onlineUserList[i]).Service, responsePacket.PacketToBytes());
                                     success = true;
                                 }
                             }
@@ -585,9 +595,9 @@ namespace FakeQQ_Server
                         }
                         //即使允许加FriendID为好友，若FriendID不在线，则加好友失败。只构造一个返回给UserID的包。
                         bool friendIDIsOnline = false;
-                        for (int i=0; i<onlineList.Count; i++)
+                        for (int i=0; i<onlineUserList.Count; i++)
                         {
-                            if (((UserIDAndSocket)onlineList[i]).UserID == FriendID) { friendIDIsOnline = true; }
+                            if (((UserIDAndSocket)onlineUserList[i]).UserID == FriendID) { friendIDIsOnline = true; }
                         }
                         if(friendIDIsOnline == false)
                         {
@@ -628,9 +638,9 @@ namespace FakeQQ_Server
                                         FriendListItem item = new FriendListItem();
                                         item.UserID = DataReader["FriendID"].ToString();
                                         item.IsOnline = false;
-                                        for(int i=0; i<onlineList.Count; i++)
+                                        for(int i=0; i<onlineUserList.Count; i++)
                                         {
-                                            if(((UserIDAndSocket)onlineList[i]).UserID == item.UserID)
+                                            if(((UserIDAndSocket)onlineUserList[i]).UserID == item.UserID)
                                             {
                                                 item.IsOnline = true;
                                                 break;
@@ -709,9 +719,9 @@ namespace FakeQQ_Server
                         string targetUserID = content["TargetUserID"];
                         //判断目标用户是否在线
                         bool isOnline = false;
-                        for(int i=0; i<onlineList.Count; i++)
+                        for(int i=0; i<onlineUserList.Count; i++)
                         {
-                            if (((UserIDAndSocket)onlineList[i]).UserID == targetUserID)
+                            if (((UserIDAndSocket)onlineUserList[i]).UserID == targetUserID)
                             {
                                 isOnline = true;
                                 break;
@@ -726,6 +736,22 @@ namespace FakeQQ_Server
                         {
                             responsePacket.CommandNo = 26;
                             responsePacket.Content = "发送失败";
+                        }
+                        break;
+                    }
+                case 254://客户端发送的心跳包
+                    {
+                        responsePacket.CommandNo = 254;
+                        responsePacket.Content = "";
+                        Console.WriteLine("heart beat");
+                        string sourceUserID = packet.Content.Replace("\0", "");
+                        //在 在线用户表 里面查找这个用户，更新最后一次收到心跳包的时间
+                        for(int i=0; i<onlineUserList.Count; i++)
+                        {
+                            if(((UserIDAndSocket)onlineUserList[i]).UserID == sourceUserID)
+                            {
+                                ((UserIDAndSocket)onlineUserList[i]).LastHeartBeatTime = DateTime.Now;
+                            }
                         }
                         break;
                     }

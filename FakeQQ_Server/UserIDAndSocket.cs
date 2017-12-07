@@ -11,6 +11,7 @@ namespace FakeQQ_Server
     {
         private string userID;
         private Socket service;
+        private DateTime lastHeartBeatTime;
 
         public string UserID
         {
@@ -32,6 +33,17 @@ namespace FakeQQ_Server
             set
             {
                 service = value;
+            }
+        }
+        public DateTime LastHeartBeatTime
+        {
+            set
+            {
+                lastHeartBeatTime = value;
+            }
+            get
+            {
+                return lastHeartBeatTime;
             }
         }
     }

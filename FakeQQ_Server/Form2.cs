@@ -21,8 +21,13 @@ namespace FakeQQ_Server
         {
             InitializeComponent();
             s = new ServerOperation(AdministratorID);
-            ServerOperation.OneUserLogin += new ServerOperation.CrossThreadCallControlHandler(OneUserLogin);
+            ServerOperation.UpdateOnlineUserList += new ServerOperation.CrossThreadCallControlHandler(UpdateOnlineUserList);
             ServerOperation.AdministratorModifyPassword += new ServerOperation.CrossThreadCallControlHandler(AdministratorModifyPassword);
+            //设置检查客户端是否掉线的定时器
+            System.Timers.Timer CheckHeartBeatTimer = new System.Timers.Timer();
+            CheckHeartBeatTimer.Interval = 4000;
+            CheckHeartBeatTimer.Enabled = true;
+            CheckHeartBeatTimer.Elapsed += new System.Timers.ElapsedEventHandler(s.CheckOnlineUserList);
         }
 
         private delegate void ChangeControl(object sender, EventArgs e);
@@ -85,21 +90,20 @@ namespace FakeQQ_Server
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void OneUserLogin(object sender, EventArgs e)
+        //在线用户表变动
+        private void UpdateOnlineUserList(object sender, EventArgs e)
         {
             if (listBox1.InvokeRequired)
             {
-                ChangeControl CC = new ChangeControl(OneUserLogin);
+                ChangeControl CC = new ChangeControl(UpdateOnlineUserList);
                 this.Invoke(CC, sender, e);
             }
             else
             {
-                UserIDAndSocket uid = (UserIDAndSocket)e;
-                onlineUserID.Add(uid.UserID);
                 listBox1.Items.Clear();
-                for (int i = 0; i < onlineUserID.Count; i++)
+                for (int i = 0; i < s.onlineUserList.Count; i++)
                 {
-                    listBox1.Items.Add("用户" + onlineUserID[i].ToString() + "在线");
+                    listBox1.Items.Add("用户" + ((UserIDAndSocket)s.onlineUserList[i]).UserID + "在线");
                 }
             }
         }
