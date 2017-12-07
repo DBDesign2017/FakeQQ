@@ -81,9 +81,35 @@ namespace FakeQQ_Server
         //监测客户端是否掉线
         public void CheckOnlineUserList(object sender, System.Timers.ElapsedEventArgs e)
         {
+            Console.WriteLine("server CheckOnlineUserList()");
+            Console.WriteLine("nlineUserList.Count = " + onlineUserList.Count);
             if (onlineUserList.Count > 0)
             {
-                Console.WriteLine("server check heart beat :" + ((UserIDAndSocket)onlineUserList[0]).LastHeartBeatTime.ToString());
+                //遍历在线用户表，找出上次接收心跳包的时间和当前时间的距离大于预定义的值的用户
+                ArrayList offlineUserID = new ArrayList();
+                for(int i=0; i<onlineUserList.Count; i++)
+                {
+                    if((DateTime.Now - ((UserIDAndSocket)onlineUserList[i]).LastHeartBeatTime).Seconds > 3)
+                    {
+                        Console.WriteLine("a user is offline");
+                        offlineUserID.Add(((UserIDAndSocket)onlineUserList[i]).UserID);
+                    }
+                }
+                //遍历离线用户表和在线用户表
+                //如果在线用户表里面的某个用户ID也存在于离线用户表，关闭和这个用户连接的service，从在线用户列表里面删除此用户
+                for(int i=0; i<offlineUserID.Count; i++)
+                {
+                    for(int j=0; j<onlineUserList.Count; j++)
+                    {
+                        if((string)offlineUserID[i] == ((UserIDAndSocket)onlineUserList[j]).UserID)
+                        {
+                            ((UserIDAndSocket)onlineUserList[j]).Service.Close();
+                            onlineUserList.RemoveAt(j);
+                            break;
+                        }
+                    }
+                    //对于每一个刚刚离线的用户，向他们所有的好友发送下线信息
+                }
             }
         }
 

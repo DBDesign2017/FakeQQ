@@ -25,7 +25,7 @@ namespace FakeQQ_Server
             ServerOperation.AdministratorModifyPassword += new ServerOperation.CrossThreadCallControlHandler(AdministratorModifyPassword);
             //设置检查客户端是否掉线的定时器
             System.Timers.Timer CheckHeartBeatTimer = new System.Timers.Timer();
-            CheckHeartBeatTimer.Interval = 4000;
+            CheckHeartBeatTimer.Interval = 6000;
             CheckHeartBeatTimer.Enabled = true;
             CheckHeartBeatTimer.Elapsed += new System.Timers.ElapsedEventHandler(s.CheckOnlineUserList);
         }
