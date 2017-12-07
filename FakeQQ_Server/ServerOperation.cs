@@ -81,8 +81,7 @@ namespace FakeQQ_Server
         //监测客户端是否掉线
         public void CheckOnlineUserList(object sender, System.Timers.ElapsedEventArgs e)
         {
-            Console.WriteLine("server CheckOnlineUserList()");
-            Console.WriteLine("nlineUserList.Count = " + onlineUserList.Count);
+            Console.WriteLine("onlineUserList.Count = " + onlineUserList.Count);
             if (onlineUserList.Count > 0)
             {
                 //遍历在线用户表，找出上次接收心跳包的时间和当前时间的距离大于预定义的值的用户
@@ -109,6 +108,45 @@ namespace FakeQQ_Server
                         }
                     }
                     //对于每一个刚刚离线的用户，向他们所有的好友发送下线信息
+                    SqlConnection conn = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                    SqlCommand cmd = new SqlCommand("select FriendID from dbo.Friends where ID='" + offlineUserID[i] + "'", conn);
+                    if (conn.State == ConnectionState.Closed)
+                    {
+                        try
+                        {
+                            conn.Open();
+                            SqlDataReader DataReader = cmd.ExecuteReader(CommandBehavior.CloseConnection);//使用这种方式构造SqlDataReader类型的对象，能够保证在DataReader关闭后自动Close()对应的SqlConnection类型的对象
+                            while (DataReader.Read())
+                            {
+                                string friendID = DataReader["FriendID"].ToString();
+                                //构造要发送的数据包
+                                DataPacket packet = new DataPacket();
+                                packet.ComputerName = "server";
+                                packet.NameLength = packet.ComputerName.Length;
+                                packet.FromIP = IPAddress.Parse("0.0.0.0");
+                                packet.ToIP = IPAddress.Parse("0.0.0.0");
+                                packet.CommandNo = 27;
+                                packet.Content = (string)offlineUserID[i];
+                                //发送！
+                                for(int k=0; i<onlineUserList.Count; i++)
+                                {
+                                    if(friendID == ((UserIDAndSocket)onlineUserList[k]).UserID)
+                                    {
+                                        Send(((UserIDAndSocket)onlineUserList[k]).Service, packet.PacketToBytes());
+                                    }
+                                }
+                            }
+                            DataReader.Close();
+                        }
+                        catch
+                        {
+                            Console.WriteLine("发布离线消息时出错！");
+                        }
+                        finally
+                        {
+                            conn.Close();
+                        }
+                    }
                 }
             }
         }
