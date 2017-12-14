@@ -343,6 +343,16 @@ namespace FakeQQ_Server
                             Send(recieveData.service, responsePacket.PacketToBytes());
                             break;
                         }
+                    case 5://客户端修改密码成功
+                        {
+                            Send(recieveData.service, responsePacket.PacketToBytes());
+                            break;
+                        }
+                    case 6://客户端修改密码失败
+                        {
+                            Send(recieveData.service, responsePacket.PacketToBytes());
+                            break;
+                        }
                     case 12://客户端添加好友失败
                         {
                             Send(recieveData.service, responsePacket.PacketToBytes());
@@ -580,6 +590,71 @@ namespace FakeQQ_Server
                             responsePacket.CommandNo = 4;
                         }
                         responsePacket.Content = UserID.ToString();
+                        break;
+                    }
+                case 3://客户端请求修改密码操作
+                    {
+                        JavaScriptSerializer js = new JavaScriptSerializer();
+                        dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));
+                        string UserID = content["UserID"];
+                        string OldPassword = content["OldPassword"];
+                        string NewPassword = content["NewPassword"];
+                        //查询原密码是否正确
+                        bool correct = false;
+                        SqlConnection conn = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                        SqlCommand cmd = new SqlCommand("select Password from dbo.Users where UserID='" + UserID + "'", conn);
+                        if (conn.State == ConnectionState.Closed)
+                        {
+                            try
+                            {
+                                conn.Open();
+                                SqlDataReader DataReader = cmd.ExecuteReader(CommandBehavior.CloseConnection);//使用这种方式构造SqlDataReader类型的对象，能够保证在DataReader关闭后自动Close()对应的SqlConnection类型的对象
+                                while (DataReader.Read())
+                                {
+                                    if (OldPassword == DataReader["Password"].ToString().Trim())
+                                    {
+                                        correct = true;
+                                    }
+                                }
+                                DataReader.Close();
+                            }
+                            catch
+                            {
+                                MessageBox.Show("错误！连接或查询数据库时出错");
+                            }
+                            finally
+                            {
+                                conn.Close();
+                            }
+                        }
+                        //若原密码正确，修改数据库
+                        if (correct)
+                        {
+                            try
+                            {
+                                conn = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                                cmd = new SqlCommand("update dbo.Users set Password = '" + NewPassword + "' where UserID='" + UserID + "'", conn);
+                                conn.Open();
+                                cmd.ExecuteReader(CommandBehavior.CloseConnection);
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine(e.ToString());
+                            }
+                            finally
+                            {
+                                conn.Close();
+                            }
+                        }
+                        //构造返回的数据包
+                        if (correct)
+                        {
+                            responsePacket.CommandNo = 5;
+                        }
+                        else
+                        {
+                            responsePacket.CommandNo = 6;
+                        }
                         break;
                     }
                 case 6://客户端请求添加好友操作
