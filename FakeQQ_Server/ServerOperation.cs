@@ -358,6 +358,25 @@ namespace FakeQQ_Server
                             Send(recieveData.service, responsePacket.PacketToBytes());
                             break;
                         }
+                    case 13://客户端删除好友成功
+                        {
+                            JavaScriptSerializer js = new JavaScriptSerializer();
+                            dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));
+                            string FriendID = content["FriendID"];
+                            //将返回的数据包发送给被删好友的用户
+                            for(int i=0; i<onlineUserList.Count; i++)
+                            {
+                                if(FriendID == ((UserIDAndSocket)onlineUserList[i]).UserID)
+                                {
+                                    Send(((UserIDAndSocket)onlineUserList[i]).Service, responsePacket.PacketToBytes());
+                                }
+                            }
+                            break;
+                        }
+                    case 14://客户端删除好友失败，没有任何操作
+                        {
+                            break;
+                        }
                     case 17://客户端下载好友列表成功
                         {
                             Console.WriteLine("a client want to download friendlist, success");
@@ -748,6 +767,39 @@ namespace FakeQQ_Server
                         //若FriendID在线，而且UserID可以加FriendID为好友，则构造一个发给FriendID的数据包，内容是UserID的请求信息。
                         responsePacket.CommandNo = 19;
                         responsePacket.Content = packet.Content;
+                        break;
+                    }
+                case 7://客户端请求删除好友操作
+                    {
+                        JavaScriptSerializer js = new JavaScriptSerializer();
+                        dynamic content = js.Deserialize<dynamic>(packet.Content.Replace("\0", ""));
+                        string UserID = content["UserID"];
+                        string FriendID = content["FriendID"];
+                        //构造要发送被删好友的用户的数据包
+                        responsePacket.Content = packet.Content;
+                        responsePacket.CommandNo = 14;
+                        //在数据库中删除好友关系
+                        SqlConnection connect = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                        SqlCommand cmd = new SqlCommand("delete from dbo.Friends where ID like '" + UserID + "' and FriendID like '" + FriendID + "'", connect);
+                        SqlCommand cmd2 = new SqlCommand("delete from dbo.Friends where ID like '" + FriendID + "' and FriendID like '" + UserID + "'", connect);
+                        if (connect.State == ConnectionState.Closed)
+                        {
+                            try
+                            {
+                                connect.Open();
+                                cmd.ExecuteNonQuery();//使用这种方式构造SqlDataReader类型的对象，能够保证在DataReader关闭后自动Close()对应的SqlConnection类型的对象
+                                cmd2.ExecuteNonQuery();
+                                responsePacket.CommandNo = 13;
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine(e.ToString());
+                            }
+                            finally
+                            {
+                                connect.Close();
+                            }
+                        }
                         break;
                     }
                 case 9://客户端请求下载好友列表
