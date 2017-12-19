@@ -327,32 +327,6 @@ namespace FakeQQ_Server
                             }
                             //发布OneUserLogin事件
                             ToUpdateOnlineUserList(null, null);
-                            //在数据库的Stat表中插入一条记录
-                            try
-                            {
-                                SqlConnection insertConnect = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
-                                SqlCommand insertCmd = new SqlCommand("insert into dbo.Stat values('" + DateTime.Now + "', '" + line.UserID + "', '" + "Login" + "')", insertConnect);
-                                if (insertConnect.State == ConnectionState.Closed)
-                                {
-                                    try
-                                    {
-                                        insertConnect.Open();
-                                        insertCmd.ExecuteNonQuery();
-                                    }
-                                    catch (Exception e)
-                                    {
-                                        Console.WriteLine(e.ToString());
-                                    }
-                                    finally
-                                    {
-                                        insertConnect.Close();
-                                    }
-                                }
-                            }
-                            catch (Exception e)
-                            {
-                                Console.WriteLine(e.ToString());
-                            }
                             break;
                         }
                     case 2://客户端登录失败
@@ -553,6 +527,32 @@ namespace FakeQQ_Server
                         if (Correct == true)
                         {
                             responsePacket.CommandNo = 1;
+                            //在数据库的Stat表中插入一条记录
+                            try
+                            {
+                                SqlConnection insertConnect = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                                SqlCommand insertCmd = new SqlCommand("insert into dbo.Stat values('" + DateTime.Now + "', '" + input_ID + "', '" + "Login" + "', '" + " " + "')", insertConnect);
+                                if (insertConnect.State == ConnectionState.Closed)
+                                {
+                                    try
+                                    {
+                                        insertConnect.Open();
+                                        insertCmd.ExecuteNonQuery();
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        Console.WriteLine(e.ToString());
+                                    }
+                                    finally
+                                    {
+                                        insertConnect.Close();
+                                    }
+                                }
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine(e.ToString());
+                            }
                         }
                         else
                         {
@@ -696,6 +696,32 @@ namespace FakeQQ_Server
                         if (correct)
                         {
                             responsePacket.CommandNo = 5;
+                            //在数据库的Stat表中插入一条记录
+                            try
+                            {
+                                SqlConnection insertConnect = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                                SqlCommand insertCmd = new SqlCommand("insert into dbo.Stat values('" + DateTime.Now + "', '" + UserID + "', '" + "ChangePassword" + "', '" + " " + "')", insertConnect);
+                                if (insertConnect.State == ConnectionState.Closed)
+                                {
+                                    try
+                                    {
+                                        insertConnect.Open();
+                                        insertCmd.ExecuteNonQuery();
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        Console.WriteLine(e.ToString());
+                                    }
+                                    finally
+                                    {
+                                        insertConnect.Close();
+                                    }
+                                }
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine(e.ToString());
+                            }
                         }
                         else
                         {
@@ -827,6 +853,32 @@ namespace FakeQQ_Server
                                 connect.Close();
                             }
                         }
+                        //在数据库的Stat表中插入一条记录
+                        try
+                        {
+                            SqlConnection insertConnect = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                            SqlCommand insertCmd = new SqlCommand("insert into dbo.Stat values('" + DateTime.Now + "', '" + UserID + "', '" + "DeleteFriend" + "', '" + FriendID + "')", insertConnect);
+                            if (insertConnect.State == ConnectionState.Closed)
+                            {
+                                try
+                                {
+                                    insertConnect.Open();
+                                    insertCmd.ExecuteNonQuery();
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.WriteLine(e.ToString());
+                                }
+                                finally
+                                {
+                                    insertConnect.Close();
+                                }
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e.ToString());
+                        }
                         break;
                     }
                 case 9://客户端请求下载好友列表
@@ -927,7 +979,32 @@ namespace FakeQQ_Server
                         //...
                         responsePacket.CommandNo = 20;
                         responsePacket.Content = packet.Content;
-                        //...
+                        //在数据库的Stat表中插入一条记录
+                        try
+                        {
+                            SqlConnection insertConnect_2 = new SqlConnection("Data Source=" + DataSourceName + ";Initial Catalog=JinNangIM_DB;Integrated Security=True");
+                            SqlCommand insertCmd_2 = new SqlCommand("insert into dbo.Stat values('" + DateTime.Now + "', '" + UserID + "', '" + "ConfirmFriendRequest" + "', '" + FriendID + "')", insertConnect_2);
+                            if (insertConnect_2.State == ConnectionState.Closed)
+                            {
+                                try
+                                {
+                                    insertConnect_2.Open();
+                                    insertCmd_2.ExecuteNonQuery();
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.WriteLine(e.ToString());
+                                }
+                                finally
+                                {
+                                    insertConnect_2.Close();
+                                }
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e.ToString());
+                        }
                         break;
                     }
                 case 11://客户端请求发送即时消息
